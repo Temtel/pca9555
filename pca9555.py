@@ -128,7 +128,7 @@ class PCA9555:
             comeback =self.i2c.readfrom_mem(self.address,InputPort0,1)
         else:
             self.i2c.readfrom_mem(self.address,InputPort1,2)
-        raw = (comeback[0] >> pin) & 1
+        raw = (comeback[0] >> (pin % 8)) & 1
         return raw
 
 
@@ -137,14 +137,4 @@ class PCA9555:
         self.i2c.start()
         self.i2c.writeto(int(self.ADDRESS-1), int(writeAddress), int(buf))
         self.i2c.stop()
-
-    @property
-    def readPort0(self):
-        raw = self.readi2c(InputPort0)
-        return raw
-
-    @property
-    def readPort1(self):
-        raw = self.readi2c(InputPort1)
-        return raw
 
