@@ -36,7 +36,6 @@ class PCA9555:
     """
 
 
-
     def __init__(self, i2cBus, address=0x20):
         """
         Args:
@@ -47,6 +46,7 @@ class PCA9555:
         self.address = address
         self.pinStats=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
         self.pinValues=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+
 
     def inputPins(self,inputPin):
         """
@@ -109,10 +109,6 @@ class PCA9555:
             self.i2c.writeto_mem(self.address,OutputPort1,bytes([vals]))
         print(vals)
 
-        
-
-
-
 
     def readPin(self, pin):
         """Issue a measurement.
@@ -130,11 +126,3 @@ class PCA9555:
             self.i2c.readfrom_mem(self.address,InputPort1,2)
         raw = (comeback[0] >> (pin % 8)) & 1
         return raw
-
-
-    def writei2c(self, writeAddress, buf):
-
-        self.i2c.start()
-        self.i2c.writeto(int(self.ADDRESS-1), int(writeAddress), int(buf))
-        self.i2c.stop()
-
