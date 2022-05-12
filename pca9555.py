@@ -1,23 +1,21 @@
 
 """
-INA250
+PCA955
 ------------------------
-Voltage,current and power sensor via i2c bus.
+16Bit IO Expander
 
-GitHub: https://github.com/ldreesden/ina260
+GitHub: https://github.com/ldreesden/pca955
 Author: L. Drees
 Version: 1.0
-Date:05/01/2022
-Based on datasheet: https://www.ti.com/lit/ds/symlink/ina260.pdf?ts=1651398339904&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FINA260
+Date:05/12/2022
+Based on datasheet: https://www.nxp.com/docs/en/data-sheet/PCA9555.pdf
 
 """
 
-#--- Imports
 
 from machine import SoftI2C, Pin
 import time
 
-#--- Registeradresses
 
 InputPort0 = 0x00
 InputPort1 = 0x01
