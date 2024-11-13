@@ -1,22 +1,22 @@
 
 """
-PCA955
+PCA9555
 ------------------------
 16Bit IO Expander
 
 GitHub: https://github.com/ldreesden/pca955
 Author: L. Drees
-Version: 1.0
-Date:05/12/2022
+Revised by: Temtel
+Version: 1.1
+Date: 11/12/2024 Updated to address optimizations and fixes
+
 Based on datasheet: https://www.nxp.com/docs/en/data-sheet/PCA9555.pdf
-
 """
-
 
 from machine import SoftI2C, Pin
 import time
 
-
+# Register Definitions
 InputPort0 = 0x00
 InputPort1 = 0x01
 OutputPort0 = 0x02
@@ -28,101 +28,72 @@ ConfigPort1 = 0x07
 
 #############################################################################
 
-
 class PCA9555:
-    """PCA955 Driver
-    16Bit IO extender
-    i2c communication
-    """
-
+    """PCA9555 Driver: 16-bit I/O expander with I2C communication."""
 
     def __init__(self, i2cBus, address=0x20):
         """
         Args:
-            i2cBus: SoftI2C(Pin(*SCLpin*),Pin(*SDApin*))
-            address: i2c address in hex (0x20 by default)
+            i2cBus: SoftI2C(Pin(*SCLpin*), Pin(*SDApin*))
+            address (hex): I2C address (default is 0x20)
         """
         self.i2c = i2cBus
         self.address = address
-        self.pinStats=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-        self.pinValues=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        self.pin_stats = [0] * 16  # Pin direction: 1 for input, 0 for output
+        self.pin_values = [0] * 16 # Pin output states
 
-
-    def inputPins(self,inputPin):
+    def set_pin_direction(self, pin, direction):
         """
+        Set the pin direction.
         Args:
-            inputPin(int): 0-7 = IO0_0 - IO0_7 ; 8-15 = IO1_0-IO1_7 
+            pin (int): Pin number (0-15)
+            direction (int): 1 for input, 0 for output
         """
-        self.pinStats[inputPin]=1
-        stats=0
-        if inputPin <= 7:
-            for i in range(8):
-                stats+=self.pinStats[i]<<i
-            stats=int(hex(stats),0)
-            self.i2c.writeto_mem(self.address,ConfigPort0,bytes([stats]))
-        else:
-            for i in range(8):
-                stats+=self.pinStats[i+8]<<i
-            stats=int(hex(stats),0)
-            self.i2c.writeto_mem(self.address,ConfigPort1,bytes([stats]))
-        
+        self.pin_stats[pin] = direction
+        stats = 0
+        port = ConfigPort0 if pin < 8 else ConfigPort1
+        for i in range(8):
+            stats += self.pin_stats[i + (8 if port == ConfigPort1 else 0)] << i
+        self.i2c.writeto_mem(self.address, port, bytes([stats]))
 
-    def outputPins(self,outputPin):
+    def input_pins(self, input_pin):
+        """Configures specified pin as input (shorthand for set_pin_direction)"""
+        self.set_pin_direction(input_pin, 1)
+
+    def output_pins(self, output_pin):
+        """Configures specified pin as output (shorthand for set_pin_direction)"""
+        self.set_pin_direction(output_pin, 0)
+
+    def write_pin(self, pin, value):
         """
+        Write a digital value to an output pin.
         Args:
-            outputPin(int): 0-7 = IO0_0 - IO0_7 ; 8-15 = IO1_0-IO1_7 
+            pin (int): Pin number (0-15)
+            value (int): 1 for high, 0 for low
         """
-        self.pinStats[outputPin]=0
-        stats=0
-        if outputPin <= 7:
-            for i in range(8):
-                stats+=self.pinStats[i]<<i
-            stats=int(hex(stats),0)
-            self.i2c.writeto_mem(self.address,ConfigPort0,bytes([stats]))
-        else:
-            for i in range(8):
-                stats+=self.pinStats[i+8]<<i
-            stats=int(hex(stats),0)
-            self.i2c.writeto_mem(self.address,ConfigPort1,bytes([stats]))
-
-
-    def writePin(self,pin, value):
-        """
-        Args:
-            Pin(int): 0-7 = IO0_0 - IO0_7 ; 8-15 = IO1_0-IO1_7 
-            value(int): 0 = off ; 1 = on
-        """
-        self.pinValues[pin]=value
-        vals=0
-        if self.pinStats[pin]:
-            print('ATTENTION Pin '+str(pin)+' at i2c address '+str(self.address)+' is configed as INPUT')
+        if self.pin_stats[pin] == 1:
+            print(f"Warning: Pin {pin} at address {hex(self.address)} is configured as INPUT.")
             return
-        elif pin <= 7:
-            for i in range(8):
-                vals+=self.pinValues[i]<<i
-            vals=int(hex(vals),0)
-            self.i2c.writeto_mem(self.address,OutputPort0,bytes([vals]))
-        else:
-            for i in range(8):
-                vals+=self.pinValues[i+8]<<i
-            vals=int(hex(vals),0)
-            self.i2c.writeto_mem(self.address,OutputPort1,bytes([vals]))
-        print(vals)
 
+        self.pin_values[pin] = value
+        vals = 0
+        port = OutputPort0 if pin < 8 else OutputPort1
+        for i in range(8):
+            vals += self.pin_values[i + (8 if port == OutputPort1 else 0)] << i
+        self.i2c.writeto_mem(self.address, port, bytes([vals]))
 
-    def readPin(self, pin):
-        """Issue a measurement.
-        Args:
-            writeAddress (int): address to write to
-        :return:
+    def read_pin(self, pin):
         """
-        comeback = bytearray(1)
-        if not self.pinStats[pin]:
-            print('ATTENTION Pin '+str(pin)+' at i2c address '+str(self.address)+' is configed as OUTPUT')
+        Read the digital state of an input pin.
+        Args:
+            pin (int): Pin number (0-15)
+        Returns:
+            int: Pin state, 1 for high, 0 for low
+        """
+        if self.pin_stats[pin] == 0:
+            print(f"Warning: Pin {pin} at address {hex(self.address)} is configured as OUTPUT.")
             return
-        elif pin <=7:
-            comeback =self.i2c.readfrom_mem(self.address,InputPort0,1)
-        else:
-            self.i2c.readfrom_mem(self.address,InputPort1,2)
-        raw = (comeback[0] >> (pin % 8)) & 1
-        return raw
+
+        port = InputPort0 if pin < 8 else InputPort1
+        comeback = self.i2c.readfrom_mem(self.address, port, 1)
+        return (comeback[0] >> (pin % 8)) & 1
