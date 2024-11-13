@@ -1,53 +1,59 @@
 # PCA9555
-Micropython driver vor PCA9555
+Micropython driver for PCA9555
+This fork is updated, optimized to support ESP32-S3, and makes use of the
+interrupt pin for optimal non-blocking input functioning.
 
-The PCA 9555 is an 16Bit IO Expander via i2c.
+The PCA 9555 is an 16Bit IO Expander via i2c with a single shared interrupt pin.
 possible with 8 PCA955 in one i2c bus.
 Addresses from 0x20 to 0x28
 
 For the IO0_* the Pins are 0-7 and for IO1_* they are  8-15
+
+Usage:
 ---------
+### Imports
+<pre>
+from machine import I2C, Pin
+import time
+from pca9555 import PCA9555
+</pre>
 
-# Imports
+### Initialize I2C and PCA9555
+<pre>i2c_bus = I2C(1, scl=Pin(6), sda=Pin(7))  # Adjust pin numbers as needed
+expander = PCA9555(i2c_bus, address=0x21)
+</pre>
+       
+### Configure pins 0-8 as inputs (for buttons)
+<pre>
+for pin in range(9):  # Now correctly handling pins 0-8
+    expander.input_pins(pin)
+</pre>
+        
+### Define the interrupt callback function
+<pre>
+def interrupt_handler(pin):
+    # Optional debounce to prevent noise from triggering multiple interrupts
+    time.sleep_ms(50)  # Adjust debounce delay as necessary
 
-To use the i2c from your µC:
+    # Debug message to confirm interrupt activation
+    print("Interrupt detected on GPIO", pin)
 
-        from machine import SoftI2C, Pin
-        from pca955 import PCA955
+    # Poll the expander for the current button states for pins 0-8
+    button_states = [expander.read_pin(p) for p in range(9)]
+    print("Button States:", button_states)
 
-For recent Micropython firmwares is SoftI2C neccesary, for older version will I2C work.
+    # Additional handling logic can be added here based on button states
+</pre>
 
-# Init PCA955
+### Set up the ESP32 interrupt pin on GPIO 5 to trigger the interrupt handler
+<pre>
+interrupt_pin = Pin(5, Pin.IN, Pin.PULL_UP)
+interrupt_pin.irq(trigger=Pin.IRQ_FALLING, handler=interrupt_handler)
+</pre>
 
-        i2c=SoftI2C(scl=Pin(22),sda=Pin(21))
-        pca=PCA9555(i2c, address = 0x20)
-
-The i2c address is by default 0x20, if need to adjust the address take a look on the datasheet
-
-
-Set pins to input or output
--------
-________
-
-After the initialisation the pins have to be set
-
-for Input:
-
-        pca.inputPins(0)
-
-
-for Output:
-
-        pca.outputPins(8)
-
-# Read pins
-
-        pca.readPin(0)
-
-will return 0 if low and 1 if high at IO0_0
-
-# Write pins
-
-        pca.writePin(8,1)
-
-will turn IO1_0 to high
+### Main loop (no need to continuously poll)
+<pre>
+while True:
+    # Optional: Add any non-blocking code here
+    time.sleep(0.1)  # Small delay to allow for other processing
+</pre>
